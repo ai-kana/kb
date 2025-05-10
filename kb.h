@@ -41,6 +41,7 @@ void kb_submit_buf(kb_cmd_buf buf);
 
 void kb_rebuild_self(const char* compiler);
 void kb_get_c_files(char*** files, size_t* count);
+void kb_free_c_files(char*** files, size_t* count);
 
 //#define KB_IMPLEMENTATION
 #ifdef KB_IMPLEMENTATION
