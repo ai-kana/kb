@@ -45,7 +45,7 @@ void kb_rebuild_self(const char* compiler);
 void kb_get_c_files(char*** files, size_t* count);
 void kb_free_c_files(char** files, size_t count);
 
-//#define KB_IMPLEMENTATION
+#define KB_IMPLEMENTATION
 #ifdef KB_IMPLEMENTATION
 
 #include <stdlib.h>
@@ -233,7 +233,6 @@ kb_do_compilation_pass(const kb_compilation_pass_t* pass)
         name_swap[strlen(name_swap) - 1] = 'o';
 
         if (!needs_recompile(pass->files.names[i], name_swap)) {
-            printf("Skipping, recomp not needed\n");
             commands[i] = NULL;
             continue;
         }
