@@ -34,6 +34,8 @@ void kb_add_link_pass(kb_cmd_buf buf, kb_link_pass_t* pass);
 
 void kb_add_secondary(kb_cmd_buf buf, kb_cmd_buf secondary);
 
+void kb_add_change_dir(kb_cmd_buf buf, const char* dir);
+
 void kb_create_buf(kb_cmd_buf* buf);
 void kb_destroy_buf(kb_cmd_buf buf);
 
@@ -54,11 +56,13 @@ void kb_free_c_files(char** files, size_t count);
 #include <time.h>
 #include <stdbool.h>
 #include <dirent.h>
+#include <unistd.h>
 
 typedef enum kb_cmd_type {
     kb_cmd_type_compilation_pass,
     kb_cmd_type_link_pass,
     kb_cmd_type_secondary,
+    kb_cmd_type_change_dir,
 } kb_cmd_type_t;
 
 typedef struct kb_cmd_secondary {
@@ -79,6 +83,7 @@ typedef struct kb_cmd {
         kb_cmd_compilation_pass_t compilation_pass;
         kb_cmd_link_pass_t link_pass;
         kb_cmd_secondary_t secondary;
+        const char* change_dir;
     } command;
 } kb_cmd_t;
 
@@ -134,6 +139,15 @@ kb_add_link_pass(kb_cmd_buf buf, kb_link_pass_t* pass)
     kb_cmd_t cmd;
     cmd.type = kb_cmd_type_link_pass;
     cmd.command.link_pass.pass = *pass;
+    __kb_buf_append((kb_cmds_t*)buf, &cmd);
+}
+
+void
+kb_add_change_dir(kb_cmd_buf buf, const char* dir)
+{
+    kb_cmd_t cmd;
+    cmd.type = kb_cmd_type_change_dir;
+    cmd.command.change_dir = dir;
     __kb_buf_append((kb_cmds_t*)buf, &cmd);
 }
 
@@ -306,6 +320,9 @@ kb_submit_buf(kb_cmd_buf buf)
                 break;
             case kb_cmd_type_secondary:
                 kb_submit_buf(cmd->command.secondary.buf);
+                break;
+            case kb_cmd_type_change_dir:
+                chdir(cmd->command.change_dir);
                 break;
             default:
                 break;
