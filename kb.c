@@ -8,9 +8,15 @@ main()
     // Setting compiler to NULL defaults to cc
     kb_rebuild_self(NULL);
 
+    char** files = NULL;
+    size_t count = 0;
+    kb_get_c_files(&files, &count);
+
+    kb_free_c_files(files, count);
+
     // KB works by recording and submitting build commands to a buffer
     kb_cmd_buf buf;
-    kb_create_buf(buf);
+    kb_create_buf(&buf);
 
     // Add a compile pass
     // All files in .files.names are built as objects
@@ -48,7 +54,7 @@ main()
     kb_submit_buf(buf);
 
     kb_cmd_buf prim;
-    kb_create_buf(prim);
+    kb_create_buf(&prim);
 
     // Buffers can be recorded and execute by other buffers
     kb_add_secondary(prim, buf);

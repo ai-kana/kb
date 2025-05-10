@@ -4,7 +4,8 @@
 #define __need_size_t
 #include <stddef.h>
 
-typedef void* kb_cmd_buf;
+struct kb_cmd_buf_phony;
+typedef struct kb_cmd_buf_phony* kb_cmd_buf;
 
 typedef struct kb_compilation_pass {
     struct {
@@ -39,6 +40,7 @@ void kb_destroy_buf(kb_cmd_buf buf);
 void kb_submit_buf(kb_cmd_buf buf);
 
 void kb_rebuild_self(const char* compiler);
+void kb_get_c_files(char*** files, size_t* count);
 
 //#define KB_IMPLEMENTATION
 #ifdef KB_IMPLEMENTATION
@@ -50,6 +52,7 @@ void kb_rebuild_self(const char* compiler);
 #include <pthread.h>
 #include <time.h>
 #include <stdbool.h>
+#include <dirent.h>
 
 typedef enum kb_cmd_type {
     kb_cmd_type_compilation_pass,
@@ -94,7 +97,7 @@ kb_create_buf(kb_cmd_buf* buf)
     state->count = 0;
     state->capacity = capacity;
 
-    *buf = state;
+    *buf = (kb_cmd_buf)state;
 }
 
 void
@@ -333,6 +336,63 @@ kb_rebuild_self(const char* compiler)
     system("./kb");
 
     exit(0);
+}
+
+void 
+kb_get_c_files(char*** files, size_t* count)
+{
+    *files = NULL;
+    DIR* dir = opendir(".");
+    if (!dir) {
+        return;
+    }
+
+    size_t capacity = 8;
+    char** data = (char**)malloc(sizeof(char*) * 8);
+
+    struct dirent* ent;
+    *count = 0;
+    while ((ent = readdir(dir)) != NULL) {
+        if (ent->d_type != DT_REG) {
+            continue;
+        }
+
+        const size_t len = strlen(ent->d_name);
+        if (len < 3) {
+            continue;
+        }
+
+        if (ent->d_name[len - 2] != '.' || ent->d_name[len - 1] != 'c') {
+            continue;
+        }
+
+        if (ent->d_name[0] == 'k' && ent->d_name[1] == 'b') {
+            continue;
+        }
+
+        char* buf = (char*)malloc(len + 1);
+        memcpy(buf, ent->d_name, len + 1);
+        if (*count >= capacity) {
+            capacity <<= 1;
+            data = (char**)realloc(data, sizeof(char*) * capacity);
+        }
+        data[*count] = buf;
+
+        *count += 1;
+    }
+    *files = data;
+
+    closedir(dir);
+}
+
+void
+kb_free_c_files(char** files, size_t size)
+{
+    for (size_t i = 0; i < size; i++) {
+        free(files[i]);
+    }
+
+    free(files);
 }
 
 #endif
