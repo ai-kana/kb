@@ -7,21 +7,21 @@
 struct kb_cmd_buf_phony;
 typedef struct kb_cmd_buf_phony* kb_cmd_buf;
 
+
+typedef struct kb_files {
+    char** names;
+    size_t count;
+} kb_files_t;
+
 typedef struct kb_compilation_pass {
-    struct {
-        const char* const* names;
-        size_t count;
-    } files;
+    kb_files_t files;
     const char* flags;
     const char* compiler;
     const char* build_dir;
 } kb_compilation_pass_t;
 
 typedef struct kb_link_pass {
-    struct {
-        const char* const* names;
-        size_t count;
-    } files;
+    kb_files_t files;
     const char* flags;
     const char* linker;
     const char* build_dir;
@@ -42,8 +42,9 @@ void kb_destroy_buf(kb_cmd_buf buf);
 void kb_submit_buf(kb_cmd_buf buf);
 
 void kb_rebuild_self(const char* compiler);
-void kb_get_c_files(char*** files, size_t* count);
-void kb_free_c_files(char** files, size_t count);
+void kb_get_c_files(kb_files_t* files, const char* path);
+void kb_get_o_files(kb_files_t* files, const char* path);
+void kb_free_files(kb_files_t* files);
 
 //#define KB_IMPLEMENTATION
 #ifdef KB_IMPLEMENTATION
@@ -356,10 +357,13 @@ kb_rebuild_self(const char* compiler)
 }
 
 void 
-kb_get_c_files(char*** files, size_t* count)
+kb_get_c_files(kb_files_t* files, const char* path)
 {
-    *files = NULL;
-    DIR* dir = opendir(".");
+    files->names = NULL;
+    if (path == NULL) {
+        path = ".";
+    }
+    DIR* dir = opendir(path);
     if (!dir) {
         return;
     }
@@ -368,7 +372,7 @@ kb_get_c_files(char*** files, size_t* count)
     char** data = (char**)malloc(sizeof(char*) * 8);
 
     struct dirent* ent;
-    *count = 0;
+    files->count = 0;
     while ((ent = readdir(dir)) != NULL) {
         if (ent->d_type != DT_REG) {
             continue;
@@ -389,27 +393,77 @@ kb_get_c_files(char*** files, size_t* count)
 
         char* buf = (char*)malloc(len + 1);
         memcpy(buf, ent->d_name, len + 1);
-        if (*count >= capacity) {
+        if (files->count >= capacity) {
             capacity <<= 1;
             data = (char**)realloc(data, sizeof(char*) * capacity);
         }
-        data[*count] = buf;
+        data[files->count] = buf;
 
-        *count += 1;
+        files->count += 1;
     }
-    *files = data;
+    files->names = data;
+
+    closedir(dir);
+}
+
+void 
+kb_get_o_files(kb_files_t* files, const char* path)
+{
+    files->names = NULL;
+    if (path == NULL) {
+        path = ".";
+    }
+    DIR* dir = opendir(path);
+    if (!dir) {
+        return;
+    }
+
+    size_t capacity = 8;
+    char** data = (char**)malloc(sizeof(char*) * 8);
+
+    struct dirent* ent;
+    files->count = 0;
+    while ((ent = readdir(dir)) != NULL) {
+        if (ent->d_type != DT_REG) {
+            continue;
+        }
+
+        const size_t len = strlen(ent->d_name);
+        if (len < 3) {
+            continue;
+        }
+
+        if (ent->d_name[len - 2] != '.' || ent->d_name[len - 1] != 'o') {
+            continue;
+        }
+
+        if (ent->d_name[0] == 'k' && ent->d_name[1] == 'b') {
+            continue;
+        }
+
+        char* buf = (char*)malloc(len + 1);
+        memcpy(buf, ent->d_name, len + 1);
+        if (files->count >= capacity) {
+            capacity <<= 1;
+            data = (char**)realloc(data, sizeof(char*) * capacity);
+        }
+        data[files->count] = buf;
+
+        files->count += 1;
+    }
+    files->names = data;
 
     closedir(dir);
 }
 
 void
-kb_free_c_files(char** files, size_t size)
+kb_free_files(kb_files_t* files)
 {
-    for (size_t i = 0; i < size; i++) {
-        free(files[i]);
+    for (size_t i = 0; i < files->count; i++) {
+        free(files->names[i]);
     }
 
-    free(files);
+    free(files->names);
 }
 
 #endif
